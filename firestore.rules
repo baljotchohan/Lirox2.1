@@ -1,0 +1,70 @@
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: user_profiles
+    // Document ID: {userId}
+    // Fields:
+    //   - roles: list (required)
+    //   - interests: list (required)
+    //   - goals: list (required)
+    //   - pain_points: list (required)
+    //   - preferences: map (optional)
+    //   - updated_at: timestamp (required)
+    //
+    // Collection: conversations
+    // Document ID: {convId}
+    // Fields:
+    //   - user_id: string (required)
+    //   - user_message: string (required)
+    //   - assistant_response: string (required)
+    //   - created_at: timestamp (required)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.user_id;
+    }
+
+    function isValidProfile(data) {
+      return data.roles is list &&
+             data.interests is list &&
+             data.goals is list &&
+             data.pain_points is list &&
+             data.updated_at is timestamp;
+    }
+
+    function isValidConversation(data) {
+      return data.user_id is string &&
+             data.user_id == request.auth.uid &&
+             data.user_message is string &&
+             data.user_message.size() > 0 &&
+             data.user_message.size() < 5000 &&
+             data.assistant_response is string &&
+             data.created_at is timestamp;
+    }
+
+    // Rules
+    match /user_profiles/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidProfile(request.resource.data);
+    }
+
+    match /conversations/{convId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidConversation(request.resource.data);
+      allow update, delete: if false; // Conversations are immutable
+    }
+  }
+}

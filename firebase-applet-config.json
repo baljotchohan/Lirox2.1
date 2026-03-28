@@ -1,0 +1,10 @@
+{
+  "projectId": "studiq-ai",
+  "appId": "1:637205079263:web:bfc45e08cb08ca4767f56a",
+  "apiKey": "AIzaSyAYeiKPTIhiaKePafDDteX_xNphIu3YcM0",
+  "authDomain": "studiq-ai.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-d32f228a-385a-4faf-8fe3-8755cd61e05e",
+  "storageBucket": "studiq-ai.firebasestorage.app",
+  "messagingSenderId": "637205079263",
+  "measurementId": ""
+}

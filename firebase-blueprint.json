@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user's learned roles, interests, goals, and challenges.",
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Professional roles or titles identified from chat."
+        },
+        "interests": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Topics of interest identified from chat."
+        },
+        "goals": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Short or long-term goals identified from chat."
+        },
+        "pain_points": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Challenges or difficulties identified from chat."
+        },
+        "preferences": {
+          "type": "object",
+          "description": "User preferences like tone, style, etc."
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["roles", "interests", "goals", "pain_points", "updated_at"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Stores individual chat messages.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "user_message": { "type": "string" },
+        "assistant_response": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "user_message", "assistant_response", "created_at"]
+    }
+  },
+  "firestore": {
+    "/user_profiles/{userId}": {
+      "schema": "UserProfile",
+      "description": "The profile of a specific user."
+    },
+    "/conversations/{convId}": {
+      "schema": "Conversation",
+      "description": "Chat history records."
+    }
+  }
+}
