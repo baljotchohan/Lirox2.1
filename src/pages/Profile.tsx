@@ -1,18 +1,22 @@
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import { db, auth, doc, onSnapshot } from '../lib/firebase';
+import type { UserProfile } from '../types';
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    const unsubscribe = onSnapshot(doc(db, 'user_profiles', auth.currentUser.uid), (doc) => {
-      if (doc.exists()) {
-        setProfile(doc.data());
+    const unsubscribe = onSnapshot(doc(db, 'user_profiles', auth.currentUser.uid), (snapshot) => {
+      if (snapshot.exists()) {
+        setProfile(snapshot.data() as UserProfile);
       }
+      setLoading(false);
+    }, (error) => {
+      console.error('ProfilePage: Firestore error', error);
       setLoading(false);
     });
 
@@ -108,7 +112,7 @@ export default function ProfilePage() {
             </h2>
             {profile?.preferences && Object.keys(profile.preferences).length > 0 ? (
               <div className="grid gap-4">
-                {Object.entries(profile.preferences).map(([key, value]: any) => (
+                {Object.entries(profile.preferences).map(([key, value]) => (
                   <div key={key} className="flex justify-between items-center pb-4 border-b border-gray-100 last:border-b-0">
                     <span className="text-gray-700 font-medium capitalize">{key}</span>
                     <span className="text-gray-600">{String(value)}</span>
