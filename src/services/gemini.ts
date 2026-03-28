@@ -1,8 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import type { UserProfile } from '../types';
 
+// WARNING: The API key is embedded in the client bundle via Vite's define config.
+// For production, proxy Gemini calls through a backend endpoint to keep the key secret.
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-export async function chatWithLirox(message: string, profile: any, history: any[]) {
+export async function chatWithLirox(message: string, profile: UserProfile, history: Array<{ role: string; content: string }>) {
   const model = "gemini-3-flash-preview";
   
   const systemInstruction = `You are Lirox, a personal AI that deeply understands the user.
@@ -60,7 +63,7 @@ Include only explicitly stated facts. Return empty arrays for categories with no
 
   const response = await ai.models.generateContent({
     model,
-    contents: prompt,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config: {
       responseMimeType: "application/json",
       responseSchema: {

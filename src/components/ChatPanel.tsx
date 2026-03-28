@@ -2,12 +2,24 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
 import { db, auth, collection, addDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp } from '../lib/firebase';
 import { chatWithLirox, extractProfileFacts } from '../services/gemini';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import type { Message, UserProfile } from '../types';
+
+const MAX_MESSAGE_LENGTH = 5000;
+
+const defaultProfile: UserProfile = {
+  roles: [],
+  interests: [],
+  goals: [],
+  pain_points: [],
+  preferences: {},
+};
 
 export default function ChatPanel() {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [profile, setProfile] = useState<any>({});
+  const [profile, setProfile] = useState<UserProfile>(defaultProfile);
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -19,9 +31,14 @@ export default function ChatPanel() {
 
     // Fetch profile for context
     const fetchProfile = async () => {
-      const profileDoc = await getDoc(doc(db, 'user_profiles', auth.currentUser!.uid));
-      if (profileDoc.exists()) {
-        setProfile(profileDoc.data());
+      try {
+        const profileDoc = await getDoc(doc(db, 'user_profiles', auth.currentUser!.uid));
+        if (profileDoc.exists()) {
+          setProfile(profileDoc.data() as UserProfile);
+        }
+      } catch (err) {
+        console.error('ChatPanel: failed to fetch profile', err);
+        setError('Could not load your profile. Please refresh the page.');
       }
     };
     fetchProfile();
@@ -35,38 +52,33 @@ export default function ChatPanel() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const msgs = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      })) as Message[];
       setMessages(msgs);
       setTimeout(scrollToBottom, 100);
-    }, (error) => {
-      console.error("Firestore Error in ChatPanel:", error);
+    }, (err) => {
+      console.error("Firestore Error in ChatPanel:", err);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [auth.currentUser?.uid]);
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || !auth.currentUser || loading) return;
+    if (input.length > MAX_MESSAGE_LENGTH) {
+      setError(`Message is too long (max ${MAX_MESSAGE_LENGTH} characters).`);
+      return;
+    }
 
     const userMsg = input;
     setInput('');
     setLoading(true);
+    setError(null);
 
     try {
-      // Prepare history for Gemini
-      const history = messages.map(m => ({
-        role: 'user', // Simplified for now, we'll map correctly
-        content: m.user_message
-      })).concat(messages.map(m => ({
-        role: 'model',
-        content: m.assistant_response
-      })));
-      
-      // We need a better history mapper, but for now let's just use the last few
       const formattedHistory = messages.slice(-10).flatMap(m => [
         { role: 'user', content: m.user_message },
         { role: 'model', content: m.assistant_response }
@@ -94,21 +106,21 @@ export default function ChatPanel() {
           preferences: {}
         };
 
-        const updatedProfile = {
+        const updatedProfile: UserProfile = {
           roles: Array.from(new Set([...(existingProfile.roles || []), ...(facts.roles || [])])),
           interests: Array.from(new Set([...(existingProfile.interests || []), ...(facts.interests || [])])),
           goals: Array.from(new Set([...(existingProfile.goals || []), ...(facts.goals || [])])),
           pain_points: Array.from(new Set([...(existingProfile.pain_points || []), ...(facts.pain_points || [])])),
           preferences: { ...(existingProfile.preferences || {}), ...(facts.preferences || {}) },
-          updated_at: serverTimestamp()
         };
 
-        await setDoc(profileRef, updatedProfile);
+        await setDoc(profileRef, { ...updatedProfile, updated_at: serverTimestamp() });
         setProfile(updatedProfile);
       }
 
-    } catch (error) {
-      console.error('Error in handleSend:', error);
+    } catch (err) {
+      console.error('Error in handleSend:', err);
+      setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
       scrollToBottom();
@@ -117,6 +129,13 @@ export default function ChatPanel() {
 
   return (
     <div className="h-[600px] flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm">
+      {/* Error banner */}
+      {error && (
+        <div className="px-6 py-2 bg-red-50 border-b border-red-100 text-red-700 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="ml-4 text-red-500 hover:text-red-700 font-bold">✕</button>
+        </div>
+      )}
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 && !loading && (
@@ -166,6 +185,7 @@ export default function ChatPanel() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Tell me something..."
           disabled={loading}
+          maxLength={MAX_MESSAGE_LENGTH}
           className="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 shadow-inner"
         />
         <button

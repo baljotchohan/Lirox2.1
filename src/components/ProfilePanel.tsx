@@ -1,22 +1,24 @@
 import { useState, useEffect } from 'react';
 import { db, auth, doc, onSnapshot } from '../lib/firebase';
+import type { UserProfile } from '../types';
 
 export default function ProfilePanel() {
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    const unsubscribe = onSnapshot(doc(db, 'user_profiles', auth.currentUser.uid), (doc) => {
-      if (doc.exists()) {
-        setProfile(doc.data());
+    const unsubscribe = onSnapshot(doc(db, 'user_profiles', auth.currentUser.uid), (snapshot) => {
+      if (snapshot.exists()) {
+        setProfile(snapshot.data() as UserProfile);
       } else {
         setProfile({
           roles: [],
           interests: [],
           goals: [],
-          pain_points: []
+          pain_points: [],
+          preferences: {},
         });
       }
       setLoading(false);
